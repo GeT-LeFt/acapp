@@ -21,10 +21,10 @@ def receive_code(request):
             'secret': "817c19668e1a420583f96ead767ea281",
             'code': code
             }
-    access_token_res = requests.get(apply_access_token_url, parama=parama).json()
+    access_token_res = requests.get(apply_access_token_url, params=params).json()
 
-    access_token = access_token_res('access_token')
-    openid = access_token_res('openid')
+    access_token = access_token_res['access_token']
+    openid = access_token_res['openid']
 
     players = Player.objects.filter(openid=openid)
     if players.exists():    # 如果之前存过用户信息，直接login
@@ -33,12 +33,12 @@ def receive_code(request):
 
     get_userinfo_url = "https://www.acwing.com/third_party/api/meta/identity/getinfo/"  # 申请用户信息
     params = {
-            "acwing_token": access_token,
+            "access_token": access_token,
             "openid": openid
             }
-    userinfo_res = request.get(get_userinfo_url, params=params).json()
-    username = userinfo_res("username")     # 获得用户名和头像
-    photo = userinfo_res("photo")
+    userinfo_res = requests.get(get_userinfo_url, params=params).json()
+    username = userinfo_res['username']     # 获得用户名和头像
+    photo = userinfo_res['photo']
 
     while User.objects.filter(username=username).exists():  # 找到一个新用户名，每次添加一位随机数
         username += str(randint(0, 9))
