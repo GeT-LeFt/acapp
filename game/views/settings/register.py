@@ -25,7 +25,7 @@ def register(request):
     user = User(username=username)
     user.set_password(password)
     user.save()
-    Player.objects.create(user=user, photo="https://img2.baidu.com/it/u=2161949891,656888789&fm=26&fmt=auto")   // django创建数据库
+    Player.objects.create(user=user, photo="https://cdn-icons-png.flaticon.com/512/528/528098.png")   // django创建数据库
     login(request, user)
     return JsonResponse({
         'result': "success",

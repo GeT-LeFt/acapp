@@ -16,7 +16,7 @@ def getinfo_web(request):
             'result': "not logged in"       # 用api“is_authenticated”判断是否登录，没有返回字符串"not logged in"
             })
     else :
-        player = Player.objects.all()[0]
+        player = Player.objects.get(user=user)
         return JsonResponse({
             'result': "success",
             'username': player.user.username,
