@@ -562,8 +562,12 @@ class Settings {
     }
 
     start() {
-        this.getinfo();
-        this.add_listening_events();
+        if (this.platform === "ACAPP") {
+            this.getinfo_acapp();
+        } else {
+            this.getinfo_web();
+            this.add_listening_events();
+        }
     }
 
     add_listening_events() {
@@ -682,7 +686,35 @@ class Settings {
         this.$login.show();
     }
 
-    getinfo() {     // 从服务器端获取用户信息
+    acapp_login(appid, redirect_uri, scope, state) {
+        let outer = this;
+
+        this.root.AcWingOS.api.oauth2.authorize(appid, redirect_uri, scope, state, function(resp) {
+            console.log(resp);
+            if (resp.result === "success") {
+                outer.username = resp.username;      // 和getinfo_web中success后的一样，保存用户信息并关掉登陆界面打开菜单界面
+                outer.photo = resp.photo;
+                outer.hide();
+                outer.root.menu.show();
+            }
+        });     // acapp网站提供的api，见第一步：https://www.acwing.com/blog/content/12467/
+    }
+
+    getinfo_acapp() {   // 从acapp获取用户信息
+        let outer = this;
+
+        $.ajax({
+            url: "https://app4436.acapp.acwing.com.cn/settings/acwing/acapp/apply_code/",
+            type: "GET",
+            success: function(resp) {
+                if (resp.result === "success") {
+                    outer.acapp_login(resp.appid, resp.redirect_uri, resp.scope, resp.state);
+                }
+            }
+        });
+    }
+
+    getinfo_web() {     // 从服务器端获取用户信息
         let outer = this;
 
         $.ajax({
