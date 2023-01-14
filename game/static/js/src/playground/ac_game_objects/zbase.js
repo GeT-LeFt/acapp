@@ -5,9 +5,19 @@ class AcGameObject {
         AC_GAME_OBJECTS.push(this);         // 每次构造时，放入每秒调用的全局数组里
         this.has_called_start = false;      // 标记一下，检查该物体是否执行过start函数(因为start只能执行一次，update是后续的每帧都要执行)
         this.timedelta = 0;                 // 当前帧距离上一帧的时间间隔，单位：毫秒(由于不同浏览器刷新率不一样，我们通过统一帧的间隔时间，来统一物体的移动速度)
+        this.uuid = this.create_uuid();
     }
 
     // 一个物体生命周期中，一般设计四个函数
+
+    create_uuid() {       // 给每个object设定一个八位随机数，用来在联机对战中实现同步
+        let res = "";
+        for (let i = 0; i < 8; i ++ ) {
+            let x = parseInt(Math.floor(Math.random() * 10));
+            res += x;
+        }
+        return res;
+    }
 
     start() {       // 1. 初始状态，只会在第一帧执行一次
     }

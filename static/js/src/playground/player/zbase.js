@@ -1,5 +1,7 @@
 class Player extends AcGameObject {
-    constructor(playground, x, y, radius, color, speed, is_me) {    // 玩家的各个参数，is_me是为了区分本地还是网络玩家，两者输入方式不一样(键盘和网络返回值)
+    constructor(playground, x, y, radius, color, speed, character, username, photo) {    // 玩家的各个参数，is_me是为了区分本地还是网络玩家，两者输入方式不一样(键盘和网络返回值)
+        console.log(character, username, photo);
+
         super();
         this.playground = playground;
         this.ctx = this.playground.game_map.ctx;
@@ -14,21 +16,23 @@ class Player extends AcGameObject {
         this.radius = radius;
         this.color = color;
         this.speed = speed;
-        this.is_me = is_me;
+        this.character = character;
+        this.username = username;
+        this.photo = photo;
         this.eps = 0.01;         // 最小误差，控制最小精度
         this.friction = 0.9;    // 被攻击后移速降低的摩擦力
         this.spent_time = 0;    // 经过的时间，用于开始无敌时间
 
         this.cur_skill = null;  // 记录当前技能
 
-        if (this.is_me) {       // 如果是自己，渲染头像
+        if (this.character !== "robot") {       // 如果是自己，渲染头像
             this.img = new Image();
-            this.img.src = this.playground.root.settings.photo;
+            this.img.src = this.photo;
         }
     }
 
     start() {
-        if (this.is_me) {
+        if (this.character === "me") {
             this.add_listening_events();    // 如果是本用户，添加监听函数
         } else {
             this.tx = Math.random() * this.playground.width / this.playground.scale;
@@ -117,7 +121,7 @@ class Player extends AcGameObject {
 
     update_move() {                              // 更新玩家移动
         this.spent_time += this.timedelta / 1000;
-        if (!this.is_me && this.spent_time > 5 && Math.random() < 1 / 180.0) {
+        if (this.character === "robot" && this.spent_time > 5 && Math.random() < 1 / 180.0) {
             let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
             this.shoot_fireball(player.x, player.y);
         }
@@ -132,7 +136,7 @@ class Player extends AcGameObject {
             if (this.move_length < this.eps) {    // 如果剩余距离小于最小精度，停止移动
                 this.move_length = 0;
                 this.vx = this.vy = 0;
-                if (!this.is_me) {
+                if (this.character === "robot") {
                     this.tx = Math.random() * this.playground.width / this.playground.scale;
                     this.ty = Math.random() * this.playground.height / this.playground.scale;
                     this.move_to(this.tx, this.ty);
@@ -151,7 +155,7 @@ class Player extends AcGameObject {
 
     render() {
         let scale = this.playground.scale;
-        if (this.is_me) {           // 如果是自己，渲染自己的头像
+        if (this.character !== "robot") {           // 如果不是机器人，渲染自己的头像
             this.ctx.save();
             this.ctx.beginPath();
             this.ctx.arc(this.x * scale, this.y * scale, this.radius * scale, 0, Math.PI * 2, false);
