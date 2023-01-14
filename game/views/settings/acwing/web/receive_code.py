@@ -28,7 +28,7 @@ def receive_code(request):
 
     players = Player.objects.filter(openid=openid)
     if players.exists():    # 如果之前存过用户信息，直接login
-        login(request, player[0].user)
+        login(request, players[0].user)
         return redirect("index")
 
     get_userinfo_url = "https://www.acwing.com/third_party/api/meta/identity/getinfo/"  # 申请用户信息
