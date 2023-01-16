@@ -13,7 +13,7 @@ class AcGameMenu {
         </div>
         <br>
         <div class="ac-game-menu-field-item ac-game-menu-field-item-settings">
-            Settings
+            Quit
         </div>
     </div>
 </div>

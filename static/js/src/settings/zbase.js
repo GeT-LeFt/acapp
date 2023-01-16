@@ -215,17 +215,19 @@ class Settings {
     }
 
     logout_on_remote() {  // 在远程服务器上登出
-        if (this.platform === "ACAPP") return false;
-
-        $.ajax({
-            url: "https://app4436.acapp.acwing.com.cn/settings/logout/",
-            type: "GET",
-            success: function(resp) {
-                if (resp.result === "success") {
-                    location.reload();
+        if (this.platform === "ACAPP") {
+            this.root.AcWingOS.api.window.close();
+        } else {
+            $.ajax({
+                url: "https://app4436.acapp.acwing.com.cn/settings/logout/",
+                type: "GET",
+                success: function(resp) {
+                    if (resp.result === "success") {
+                        location.reload();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     register() {    // 打开注册界面
@@ -242,7 +244,6 @@ class Settings {
         let outer = this;
 
         this.root.AcWingOS.api.oauth2.authorize(appid, redirect_uri, scope, state, function(resp) {
-            console.log(resp);
             if (resp.result === "success") {
                 outer.username = resp.username;      // 和getinfo_web中success后的一样，保存用户信息并关掉登陆界面打开菜单界面
                 outer.photo = resp.photo;

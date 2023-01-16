@@ -1,7 +1,5 @@
 class Player extends AcGameObject {
     constructor(playground, x, y, radius, color, speed, character, username, photo) {    // 玩家的各个参数，is_me是为了区分本地还是网络玩家，两者输入方式不一样(键盘和网络返回值)
-        console.log(character, username, photo);
-
         super();
         this.playground = playground;
         this.ctx = this.playground.game_map.ctx;
@@ -19,9 +17,10 @@ class Player extends AcGameObject {
         this.character = character;
         this.username = username;
         this.photo = photo;
-        this.eps = 0.01;         // 最小误差，控制最小精度
+        this.eps = 0.01;        // 最小误差，控制最小精度
         this.friction = 0.9;    // 被攻击后移速降低的摩擦力
-        this.spent_time = 0;    // 经过的时间，用于开始无敌时间
+        this.spent_time = 0;    // 经过的时间，用于开始无敌时
+        this.fireballs = [];    // 把每个人发出的火球记录下来
 
         this.cur_skill = null;  // 记录当前技能
 
@@ -34,7 +33,7 @@ class Player extends AcGameObject {
     start() {
         if (this.character === "me") {
             this.add_listening_events();    // 如果是本用户，添加监听函数
-        } else {
+        } else if (this.character === "robot") {
             this.tx = Math.random() * this.playground.width / this.playground.scale;
             this.ty = Math.random() * this.playground.height / this.playground.scale;
             this.move_to(this.tx, this.ty);
@@ -49,10 +48,22 @@ class Player extends AcGameObject {
         this.playground.game_map.$canvas.mousedown(function(e) {        // 获取鼠标事件
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {                                        // 判断是否为右键(左键为1，右键为3，滚轮为2)
-                outer.move_to((e.clientX - rect.left) / outer.playground.scale, (e.clientY - rect. top) / outer.playground.scale);    // 这里要用outer不是this，因为用this的话，this指的是mousedown这个函数本身，所以用outer赋值this用户
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect. top) / outer.playground.scale;
+                outer.move_to(tx, ty);
+
+                if (outer.playground.mode === "multi mode") {
+                    outer.playground.mps.send_move_to(tx, ty);
+                }
             } else if (e.which === 1) {
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if (outer.cur_skill === "fireball") {
-                    outer.shoot_fireball((e.clientX - rect.left) / outer.playground.scale, (e.clientY - rect.top) / outer.playground.scale);         // 如果当前技能为fireball，执行shoot_fireball函数
+                    let fireball = outer.shoot_fireball(tx, ty);         // 如果当前技能为fireball，执行shoot_fireball函数
+
+                    if (outer.playground.mode === "multi mode") {
+                        outer.playground.mps.send_shoot_fireball(tx, ty, fireball.uuid);
+                    }
                 }
 
                 outer.cur_skill = null;
@@ -75,7 +86,20 @@ class Player extends AcGameObject {
         let color = "orange";
         let speed = 0.5;
         let move_length = 1;
-        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, 0.005);
+        let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, 0.005);
+        this.fireballs.push(fireball);
+
+        return fireball;
+    }
+
+    destroy_fireball(uuid) {                // 联机中删除火球
+        for (let i = 0; i < this.fireballs.length; i ++ ) {
+            let fireball = this.fireball[i];
+            if (fireball.uuid === uuid) {
+                fireball.destroy();
+                break;
+            }
+        }
     }
 
     get_dist(x1, y1, x2, y2) {              // 构造一个计算距离的函数
@@ -112,6 +136,13 @@ class Player extends AcGameObject {
         this.damage_y = Math.sin(angle);
         this.damage_speed = damage * 80;
         this.speed *= 1.25;
+    }
+
+    receive_attack(x, y, angle, damage, ball_uuid, attacker) {
+        attacker.destroy_fireball(ball_uuid);       // 删除攻击者的火球
+        this.x = x
+        this.y = y;
+        this.is_attacked(angle, damage);
     }
 
     update() {
@@ -175,6 +206,7 @@ class Player extends AcGameObject {
         for (let i = 0; i < this.playground.players.length; i ++ ) {
             if (this.playground.players[i] === this) {
                 this.playground.players.splice(i, 1);
+                break;
             }
         }
     }
