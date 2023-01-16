@@ -28,9 +28,27 @@ class Player extends AcGameObject {
             this.img = new Image();
             this.img.src = this.photo;
         }
+
+        if (this.character === "me") {
+            this.fireball_coldtime = 3;         // 火球cd时间：单位秒
+            this.fireball_img = new Image();
+            this.fireball_img.src = "https://cdn.acwing.com/media/article/image/2021/12/02/1_9340c86053-fireball.png";
+
+            this.blink_coldtime = 5;
+            this.blink_img = new Image();
+            this.blink_img.src = "https://cdn.acwing.com/media/article/image/2021/12/02/1_daccabdc53-blink.png";
+        }
     }
 
     start() {
+        this.playground.player_count ++ ;   // 记录player数量
+        this.playground.notice_board.write("Joined Players: " + this.playground.player_count);  // 在上方更新玩家数量
+
+        if (this.playground.player_count >= 3) {
+            this.playground.state = "fighting";
+            this.playground.notice_board.write("Fighting!");
+        }
+
         if (this.character === "me") {
             this.add_listening_events();    // 如果是本用户，添加监听函数
         } else if (this.character === "robot") {
@@ -46,6 +64,9 @@ class Player extends AcGameObject {
             return false;                                               // 禁止右键打开菜单
         });
         this.playground.game_map.$canvas.mousedown(function(e) {        // 获取鼠标事件
+            if (outer.playground.state !== "fighting")                  // 不往外传鼠标事件
+                return false;
+
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {                                        // 判断是否为右键(左键为1，右键为3，滚轮为2)
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
@@ -59,10 +80,22 @@ class Player extends AcGameObject {
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
                 let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if (outer.cur_skill === "fireball") {
+                    if (outer.fireball_coldtime > outer.eps)                // 如果技能没冷却完成，不能放技能
+                        return false;
+
                     let fireball = outer.shoot_fireball(tx, ty);         // 如果当前技能为fireball，执行shoot_fireball函数
 
                     if (outer.playground.mode === "multi mode") {
-                        outer.playground.mps.send_shoot_fireball(tx, ty, fireball.uuid);
+                        outer.playground.mps.send_shoot_fireball(tx, ty, fireball.uuid);   // 广播函数
+                    }
+                } else if (outer.cur_skill === "blink") {
+                    if (outer.blink_coldtime > outer.eps)
+                        return false;
+
+                    outer.blink(tx, ty);
+
+                    if (outer.playground.mode === "multi mode") {
+                        outer.playground.mps.send_blink(tx, ty);        // 广播函数
                     }
                 }
 
@@ -71,8 +104,20 @@ class Player extends AcGameObject {
         });
 
         $(window).keydown(function(e) {                                 // 获取键盘事件，具体值可以查询keycode表
+            if (outer.playground.state !== "fighting")                  // 如果不是战斗阶段，不获取键盘事件
+                return true;
+
             if (e.which === 81) {                                       // q键
+                if (outer.fireball_coldtime > outer.eps)
+                    return true;                                           // 技能为冷却好，不能放技能
+
                 outer.cur_skill = "fireball";
+                return false;
+            } else if (e.which === 70) {                                // f键
+                if (outer.blink_coldtime > outer.eps)
+                    return true;
+
+                outer.cur_skill = "blink";
                 return false;
             }
         });
@@ -89,17 +134,30 @@ class Player extends AcGameObject {
         let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, 0.005);
         this.fireballs.push(fireball);
 
+        this.fireball_coldtime = 3;         // 火球放完后，cd重置为3秒
+
         return fireball;
     }
 
     destroy_fireball(uuid) {                // 联机中删除火球
         for (let i = 0; i < this.fireballs.length; i ++ ) {
-            let fireball = this.fireball[i];
+            let fireball = this.fireballs[i];
             if (fireball.uuid === uuid) {
                 fireball.destroy();
                 break;
             }
         }
+    }
+
+    blink(tx, ty) {
+        let d = this.get_dist(this.x, this.y, tx, ty);
+        d = Math.min(d, 0.8);
+        let angle = Math.atan2(ty - this.y, tx - this.x);
+        this.x += d * Math.cos(angle);
+        this.y += d * Math.sin(angle);
+
+        this.blink_coldtime = 5;
+        this.move_length = 0;               // 闪现过后体停止移动
     }
 
     get_dist(x1, y1, x2, y2) {              // 构造一个计算距离的函数
@@ -140,18 +198,31 @@ class Player extends AcGameObject {
 
     receive_attack(x, y, angle, damage, ball_uuid, attacker) {
         attacker.destroy_fireball(ball_uuid);       // 删除攻击者的火球
-        this.x = x
+        this.x = x;
         this.y = y;
         this.is_attacked(angle, damage);
     }
 
     update() {
+        this.spent_time += this.timedelta / 1000;
+
+        if (this.character === "me" && this.playground.state === "fighting") {
+            this.update_coldtime();
+        }
         this.update_move();
+
         this.render();
     }
 
+    update_coldtime() {
+        this.fireball_coldtime -= this.timedelta / 1000;
+        this.fireball_coldtime = Math.max(this.fireball_coldtime, 0);
+
+        this.blink_coldtime -= this.timedelta / 1000;
+        this.blink_coldtime = Math.max(this.blink_coldtime, 0);
+    }
+
     update_move() {                              // 更新玩家移动
-        this.spent_time += this.timedelta / 1000;
         if (this.character === "robot" && this.spent_time > 5 && Math.random() < 1 / 180.0) {
             let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
             this.shoot_fireball(player.x, player.y);
@@ -178,7 +249,6 @@ class Player extends AcGameObject {
                 this.x += this.vx * moved;
                 this.y += this.vy * moved;
                 this.move_length -= moved;
-
             }
         }
 
@@ -200,14 +270,65 @@ class Player extends AcGameObject {
             this.ctx.fillStyle = this.color;
             this.ctx.fill();
         }
+
+        if (this.character === "me" && this.playground.state === "fighting") {
+            this.render_skill_coldtime();
+        }
     }
 
-    on_destroy() {
-        for (let i = 0; i < this.playground.players.length; i ++ ) {
-            if (this.playground.players[i] === this) {
-                this.playground.players.splice(i, 1);
-                break;
+    render_skill_coldtime() {
+
+        // 渲染火球技能图标
+        let scale = this.playground.scale;
+        let x = 1.5, y = 0.9, r = 0.04;
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(x * scale, y * scale, r * scale, 0, Math.PI * 2, false);
+        this.ctx.stroke();
+        this.ctx.clip();
+        this.ctx.drawImage(this.fireball_img, (x - r) * scale, (y - r) * scale, r * 2 * scale, r * 2 * scale);
+        this.ctx.restore();
+
+        if (this.fireball_coldtime > 0) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x * scale, y * scale);
+            this.ctx.arc(x * scale, y * scale, r * scale, 0 - Math.PI / 2, Math.PI * 2 * (1 - this.fireball_coldtime / 3) - Math.PI / 2, false);
+            this.ctx.lineTo(x * scale, y * scale);
+            this.ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
+            this.ctx.fill();
+        }
+
+        // 渲染闪现技能图标
+        x = 1.62, y = 0.9, r = 0.04;
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(x * scale, y * scale, r * scale, 0, Math.PI * 2, false);
+        this.ctx.stroke();
+        this.ctx.clip();
+        this.ctx.drawImage(this.blink_img, (x - r) * scale, (y - r) * scale, r * 2 * scale, r * 2 * scale);
+        this.ctx.restore();
+
+        if (this.blink_coldtime > 0) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x * scale, y * scale);
+            this.ctx.arc(x * scale, y * scale, r * scale, 0 - Math.PI / 2, Math.PI * 2 * (1 - this.blink_coldtime / 5) - Math.PI / 2, false);
+            this.ctx.lineTo(x * scale, y * scale);
+            this.ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
+            this.ctx.fill();
+            }
+        }
+
+        on_destroy() {
+            if (this.character ==="me")
+                this.playground.state = "over";
+
+            for (let i = 0; i < this.playground.players.length; i ++ ) {
+                if (this.playground.players[i] === this) {
+                    this.playground.players.splice(i, 1);
+                    break;
+                }
             }
         }
     }
-}

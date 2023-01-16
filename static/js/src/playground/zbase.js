@@ -41,6 +41,9 @@ class AcGamePlayground {
         this.game_map = new GameMap(this);
 
         this.mode = mode;
+        this.state = "waiting";                     // 状态机，游戏状态分别为waiting -> fighting -> over
+        this.notice_board = new NoticeBoard(this);  // 创建状态显示栏
+        this.player_count = 0;
 
         this.resize();
 
