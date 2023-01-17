@@ -116,12 +116,89 @@ let AC_GAME_ANIMATION = function(timestamp) {                // 传入新的时�
 }
 
 requestAnimationFrame(AC_GAME_ANIMATION);       // 下一帧(1/60秒每帧)渲染前会调用该函数
+class ChatField {    // 为了方便没用放入AcGameObject里，直接用html元素构成
+    constructor(playground) {
+        this.playground = playground;
+
+        this.$history = $(`<div class="ac-game-chat-field-history">123123</div>`);
+        this.$input = $(`<input type="text" class="ac-game-chat-field-input">`);
+
+        this.$history.hide();
+        this.$input.hide();
+
+        this.func_id = null;
+
+        this.playground.$playground.append(this.$history);
+        this.playground.$playground.append(this.$input);
+
+        this.start();
+    }
+
+    start() {
+        this.add_listening_events();
+    }
+
+    add_listening_events() {
+        let outer = this;
+
+        this.$input.keydown(function(e) {
+            if (e.which === 27) {           // esc键
+                outer.hide_input();
+                return false;
+            } else if (e.which === 13) {    // enter
+                let username = outer.playground.root.settings.username;
+                let text = outer.$input.val();
+                if (text) {
+                    outer.$input.val("");
+                    outer.add_message(username, text);
+                    outer.playground.mps.send_message(username, text);
+                }
+                return false;
+            }
+        });
+    }
+
+    render_message(message) {           // 封装成html对象
+        return $(`<div>${message}</div>`);
+    }
+
+    add_message(username, text) {
+        this.show_history();
+        let message = `[${username}]: ${text}`;       // js语法，${}讲变量填充进该字符串
+        this.$history.append(this.render_message(message));
+        this.$history.scrollTop(this.$history[0].scrollHeight);
+    }
+
+    show_history() {
+        let outer = this;
+        this.$history.fadeIn();
+
+        if (this.func_id) clearTimeout(this.func_id);   // 有框的时候才倒计时，没有的时候不倒计时，通过清空func_id可以做到
+
+        this.func_id = setTimeout(function() {
+            outer.$history.fadeOut();
+            outer.func_id = null;
+        }, 3000);
+    }
+
+    show_input() {
+        this.show_history();
+
+        this.$input.show();
+        this.$input.focus();    // 聚焦了之后才能输入
+    }
+
+    hide_input() {
+        this.$input.hide();
+        this.playground.game_map.$canvas.focus();   // 输入结束后，重新聚焦到canvas本身
+    }
+}
 class GameMap extends AcGameObject { // GameMap是AcGameObject的基类，可以调用他的函数
     constructor (playground) { // 传入playground
         super(); // 调用基类的构造函数
 
         this.playground = playground;                     // 把playground存下来
-        this.$canvas = $(`<canvas></canvas>`);            // 构建画布
+        this.$canvas = $(`<canvas tabindex=0></canvas>`); // 构建画布，tabindex=0 可以让一个元素监听读入事件(鼠标键盘)
         this.ctx = this.$canvas[0].getContext('2d');      // 未来在ctx中操作画布
         this.ctx.canvas.width = this.playground.width;    // 设置画布长宽
         this.ctx.canvas.height = this.playground.height;
@@ -129,6 +206,7 @@ class GameMap extends AcGameObject { // GameMap是AcGameObject的基类，可以
     }
 
     start() {
+        this.$canvas.focus();                             // 聚焦
     }
 
     resize() {
@@ -283,7 +361,7 @@ class Player extends AcGameObject {
         });
         this.playground.game_map.$canvas.mousedown(function(e) {        // 获取鼠标事件
             if (outer.playground.state !== "fighting")                  // 不往外传鼠标事件
-                return false;
+                return true;
 
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {                                        // 判断是否为右键(左键为1，右键为3，滚轮为2)
@@ -321,13 +399,24 @@ class Player extends AcGameObject {
             }
         });
 
-        $(window).keydown(function(e) {                                 // 获取键盘事件，具体值可以查询keycode表
+        this.playground.game_map.$canvas.keydown(function(e) {          // 获取键盘事件，具体值可以查询keycode表，绑定到canvas上，只读取窗口内的鼠标键盘事件
+            if (e.which === 13) {                                       // 如果监听到enter键
+                if (outer.playground.mode === "multi mode") {           // 多人模式下，回车键打开聊天框
+                    outer.playground.chat_field.show_input();
+                    return false;
+                }
+            } else if (e.which === 27) {                                // 如果监听到esc键
+                if (outer.playground.mode === "multi mode") {
+                    outer.playground.chat_field.hide_input();
+                }
+            }
+
             if (outer.playground.state !== "fighting")                  // 如果不是战斗阶段，不获取键盘事件
                 return true;
 
             if (e.which === 81) {                                       // q键
                 if (outer.fireball_coldtime > outer.eps)
-                    return true;                                           // 技能为冷却好，不能放技能
+                    return true;                                        // 技能为冷却好，不能放技能
 
                 outer.cur_skill = "fireball";
                 return false;
@@ -535,21 +624,21 @@ class Player extends AcGameObject {
             this.ctx.lineTo(x * scale, y * scale);
             this.ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
             this.ctx.fill();
-            }
         }
+    }
 
-        on_destroy() {
-            if (this.character ==="me")
-                this.playground.state = "over";
+    on_destroy() {
+        if (this.character ==="me")
+            this.playground.state = "over";
 
-            for (let i = 0; i < this.playground.players.length; i ++ ) {
-                if (this.playground.players[i] === this) {
-                    this.playground.players.splice(i, 1);
-                    break;
-                }
+        for (let i = 0; i < this.playground.players.length; i ++ ) {
+            if (this.playground.players[i] === this) {
+                this.playground.players.splice(i, 1);
+                break;
             }
         }
     }
+}
 class FireBall extends AcGameObject {
     constructor(playground, player, x, y, radius, vx, vy, color, speed, move_length, damage) {   // 传player因为需要知道是谁发的火球
         super();
@@ -677,6 +766,8 @@ class MultiPlayerSocket {
                 outer.receive_attack(uuid, data.attackee_uuid, data.x, data.y, data.angle, data.damage, data.ball_uuid);
             } else if (event === "blink") {
                 outer.receive_blink(uuid, data.tx, data.ty);
+            } else if (event === "message") {
+                outer.receive_message(uuid, data.username, data.text);
             }
         };
     }
@@ -793,6 +884,20 @@ class MultiPlayerSocket {
             player.blink(tx, ty);
         }
     }
+
+    send_message(username, text) {
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': "message",
+            'uuid': outer.uuid,
+            'username': username,
+            'text': text,
+        }));
+    }
+
+    receive_message(uuid, username, text) {
+        this.playground.chat_field.add_message(username, text);
+    }
 }
 class AcGamePlayground {
     constructor(root) {
@@ -851,6 +956,7 @@ class AcGamePlayground {
                 this.players.push(new Player(this, this.width / 2 / this.scale, 0.5, 0.03, this.get_random_color(), 0.15, "robot"));
             }
         } else if (mode === "multi mode") {
+            this.chat_field = new ChatField(this);      // 多人模式下，在playground里加入chatfield
             this.mps = new MultiPlayerSocket(this);     // 创建socket链接
             this.mps.uuid = this.players[0].uuid;       // 自己永远是数组第一个
 

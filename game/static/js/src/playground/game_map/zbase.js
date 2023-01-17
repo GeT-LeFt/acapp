@@ -3,7 +3,7 @@ class GameMap extends AcGameObject { // GameMap是AcGameObject的基类，可以
         super(); // 调用基类的构造函数
 
         this.playground = playground;                     // 把playground存下来
-        this.$canvas = $(`<canvas></canvas>`);            // 构建画布
+        this.$canvas = $(`<canvas tabindex=0></canvas>`); // 构建画布，tabindex=0 可以让一个元素监听读入事件(鼠标键盘)
         this.ctx = this.$canvas[0].getContext('2d');      // 未来在ctx中操作画布
         this.ctx.canvas.width = this.playground.width;    // 设置画布长宽
         this.ctx.canvas.height = this.playground.height;
@@ -11,6 +11,7 @@ class GameMap extends AcGameObject { // GameMap是AcGameObject的基类，可以
     }
 
     start() {
+        this.$canvas.focus();                             // 聚焦
     }
 
     resize() {

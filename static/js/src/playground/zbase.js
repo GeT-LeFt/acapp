@@ -55,6 +55,7 @@ class AcGamePlayground {
                 this.players.push(new Player(this, this.width / 2 / this.scale, 0.5, 0.03, this.get_random_color(), 0.15, "robot"));
             }
         } else if (mode === "multi mode") {
+            this.chat_field = new ChatField(this);      // 多人模式下，在playground里加入chatfield
             this.mps = new MultiPlayerSocket(this);     // 创建socket链接
             this.mps.uuid = this.players[0].uuid;       // 自己永远是数组第一个
 

@@ -65,7 +65,7 @@ class Player extends AcGameObject {
         });
         this.playground.game_map.$canvas.mousedown(function(e) {        // 获取鼠标事件
             if (outer.playground.state !== "fighting")                  // 不往外传鼠标事件
-                return false;
+                return true;
 
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {                                        // 判断是否为右键(左键为1，右键为3，滚轮为2)
@@ -103,13 +103,24 @@ class Player extends AcGameObject {
             }
         });
 
-        $(window).keydown(function(e) {                                 // 获取键盘事件，具体值可以查询keycode表
+        this.playground.game_map.$canvas.keydown(function(e) {          // 获取键盘事件，具体值可以查询keycode表，绑定到canvas上，只读取窗口内的鼠标键盘事件
+            if (e.which === 13) {                                       // 如果监听到enter键
+                if (outer.playground.mode === "multi mode") {           // 多人模式下，回车键打开聊天框
+                    outer.playground.chat_field.show_input();
+                    return false;
+                }
+            } else if (e.which === 27) {                                // 如果监听到esc键
+                if (outer.playground.mode === "multi mode") {
+                    outer.playground.chat_field.hide_input();
+                }
+            }
+
             if (outer.playground.state !== "fighting")                  // 如果不是战斗阶段，不获取键盘事件
                 return true;
 
             if (e.which === 81) {                                       // q键
                 if (outer.fireball_coldtime > outer.eps)
-                    return true;                                           // 技能为冷却好，不能放技能
+                    return true;                                        // 技能为冷却好，不能放技能
 
                 outer.cur_skill = "fireball";
                 return false;
@@ -317,18 +328,18 @@ class Player extends AcGameObject {
             this.ctx.lineTo(x * scale, y * scale);
             this.ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
             this.ctx.fill();
-            }
         }
+    }
 
-        on_destroy() {
-            if (this.character ==="me")
-                this.playground.state = "over";
+    on_destroy() {
+        if (this.character ==="me")
+            this.playground.state = "over";
 
-            for (let i = 0; i < this.playground.players.length; i ++ ) {
-                if (this.playground.players[i] === this) {
-                    this.playground.players.splice(i, 1);
-                    break;
-                }
+        for (let i = 0; i < this.playground.players.length; i ++ ) {
+            if (this.playground.players[i] === this) {
+                this.playground.players.splice(i, 1);
+                break;
             }
         }
     }
+}
