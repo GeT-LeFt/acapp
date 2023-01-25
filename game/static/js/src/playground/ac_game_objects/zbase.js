@@ -25,6 +25,9 @@ class AcGameObject {
     update() {      // 2. 每一帧均执行一次
     }
 
+    late_update() { // 在每一帧的最后执行一次
+    }
+
     on_destroy() {  // 3. 在被销毁前执行一次
     }
 
@@ -52,6 +55,11 @@ let AC_GAME_ANIMATION = function(timestamp) {                // 传入新的时�
             obj.timedelta = timestamp - last_timestamp;     // 计算出新时间间隔
             obj.update();                                   // 执行update函数
         }
+    }
+
+    for (let i = 0; i < AC_GAME_OBJECTS.length; i ++ ) {
+        let obj = AC_GAME_OBJECTS[i];
+        obj.late_update();
     }
     last_timestamp = timestamp;                             // 更新时间戳
 

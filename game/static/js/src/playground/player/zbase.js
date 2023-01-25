@@ -217,12 +217,21 @@ class Player extends AcGameObject {
     update() {
         this.spent_time += this.timedelta / 1000;
 
+        this.update_win();
+
         if (this.character === "me" && this.playground.state === "fighting") {
             this.update_coldtime();
         }
         this.update_move();
 
         this.render();
+    }
+
+    update_win() {
+        if (this.playground.state === "fighting" && this.character === "me" && this.playground.players.length === 1) {
+            this.playground.state === "over";
+            this.playground.score_board.win();
+        }
     }
 
     update_coldtime() {
@@ -236,7 +245,9 @@ class Player extends AcGameObject {
     update_move() {                              // 更新玩家移动
         if (this.character === "robot" && this.spent_time > 5 && Math.random() < 1 / 180.0) {
             let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
-            this.shoot_fireball(player.x, player.y);
+            let tx = player.x + player.speed * this.vx * this.timedelta / 1000 * 0.3;
+            let ty = player.y + player.speed * this.vy * this.timedelta / 1000 * 0.3;
+            this.shoot_fireball(tx, ty);
         }
 
         if (this.damage_speed > this.eps) {            // 判断是否在被伤害
@@ -332,8 +343,12 @@ class Player extends AcGameObject {
     }
 
     on_destroy() {
-        if (this.character ==="me")
-            this.playground.state = "over";
+        if (this.character === "me") {
+            if (this.playground.state === "fighting") {
+                this.playground.state = "over";
+                this.playground.score_board.lose();
+            }
+        }
 
         for (let i = 0; i < this.playground.players.length; i ++ ) {
             if (this.playground.players[i] === this) {

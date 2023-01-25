@@ -14,11 +14,28 @@ class AcGamePlayground {
         return colors[Math.floor(Math.random() * 5)];
     }
 
+    create_uuid() {
+        let res = "";
+        for (let i = 0; i < 8; i ++) {          // 每个窗口一个uuid，关掉之后不监听resize
+            let x = parseInt(Math.floor(Math.random() * 10));
+            res += x;
+        }
+        return res;
+    }
+
     start() {
         let outer = this;
-        $(window).resize(function() {       // 窗口调整时会触发该函数
+        let uuid = this.create_uuid();
+        $(window).on(`resize.${uuid}`, function() {       // 窗口调整时会触发该函数
+            console.log('resize');
             outer.resize();
         });
+
+        if (this.root.AcWingOS) {                 // 关闭监听函数，避免不必要的浪费
+            this.root.AcWingOS.api.window.on_close(function() {
+                $(window).off(`resize.${uuid}`);
+            });
+        }
     }
 
     resize() {
@@ -43,6 +60,7 @@ class AcGamePlayground {
         this.mode = mode;
         this.state = "waiting";                     // 状态机，游戏状态分别为waiting -> fighting -> over
         this.notice_board = new NoticeBoard(this);  // 创建状态显示栏
+        this.score_board = new ScoreBoard(this);
         this.player_count = 0;
 
         this.resize();
@@ -66,6 +84,27 @@ class AcGamePlayground {
     }
 
     hide() {    // 关闭playground界面
+        while (this.player && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
+            this.players[0].destroy();
+        }
+
+        if (this.game_map) {
+            this.game_map.destroy();
+            this.gane_map = null;
+        }
+
+        if (this.notice_board) {
+            this.notice_board.destroy();
+            this.notice_board = null;
+        }
+
+        if (this.score_board) {
+            this.score_board.destroy();
+            this.score_board = null;
+        }
+
+        this.$playground.empty();
+
         this.$playground.hide();
     }
 }

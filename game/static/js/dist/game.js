@@ -82,6 +82,9 @@ class AcGameObject {
     update() {      // 2. 每一帧均执行一次
     }
 
+    late_update() { // 在每一帧的最后执行一次
+    }
+
     on_destroy() {  // 3. 在被销毁前执行一次
     }
 
@@ -109,6 +112,11 @@ let AC_GAME_ANIMATION = function(timestamp) {                // 传入新的时�
             obj.timedelta = timestamp - last_timestamp;     // 计算出新时间间隔
             obj.update();                                   // 执行update函数
         }
+    }
+
+    for (let i = 0; i < AC_GAME_OBJECTS.length; i ++ ) {
+        let obj = AC_GAME_OBJECTS[i];
+        obj.late_update();
     }
     last_timestamp = timestamp;                             // 更新时间戳
 
@@ -513,12 +521,21 @@ class Player extends AcGameObject {
     update() {
         this.spent_time += this.timedelta / 1000;
 
+        this.update_win();
+
         if (this.character === "me" && this.playground.state === "fighting") {
             this.update_coldtime();
         }
         this.update_move();
 
         this.render();
+    }
+
+    update_win() {
+        if (this.playground.state === "fighting" && this.character === "me" && this.playground.players.length === 1) {
+            this.playground.state === "over";
+            this.playground.score_board.win();
+        }
     }
 
     update_coldtime() {
@@ -532,7 +549,9 @@ class Player extends AcGameObject {
     update_move() {                              // 更新玩家移动
         if (this.character === "robot" && this.spent_time > 5 && Math.random() < 1 / 180.0) {
             let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
-            this.shoot_fireball(player.x, player.y);
+            let tx = player.x + player.speed * this.vx * this.timedelta / 1000 * 0.3;
+            let ty = player.y + player.speed * this.vy * this.timedelta / 1000 * 0.3;
+            this.shoot_fireball(tx, ty);
         }
 
         if (this.damage_speed > this.eps) {            // 判断是否在被伤害
@@ -628,14 +647,77 @@ class Player extends AcGameObject {
     }
 
     on_destroy() {
-        if (this.character ==="me")
-            this.playground.state = "over";
+        if (this.character === "me") {
+            if (this.playground.state === "fighting") {
+                this.playground.state = "over";
+                this.playground.score_board.lose();
+            }
+        }
 
         for (let i = 0; i < this.playground.players.length; i ++ ) {
             if (this.playground.players[i] === this) {
                 this.playground.players.splice(i, 1);
                 break;
             }
+        }
+    }
+}
+class ScoreBoard extends AcGameObject {
+    constructor(playground) {
+        super();
+        this.playground = playground;
+        this.ctx = this.playground.game_map.ctx;
+
+        this.state = null; // win: 胜利; lose: 失败
+
+        this.win_img = new Image();
+        this.win_img.src = "https://www.kindpng.com/picc/m/172-1725259_you-win-pixel-art-hd-png-download.png";
+
+        this.lose_img = new Image();
+        this.lose_img.src = "https://thumbs.dreamstime.com/b/you-lose-red-rubber-stamp-over-white-background-86701681.jpg";
+    }
+
+    start() {
+    }
+
+    add_listening_events() {
+        let outer = this;
+        let $canvas = this.playground.game_map.$canvas;
+
+        $canvas.on('click', function() {
+            outer.playground.hide();
+            outer.playground.root.menu.show();
+        });
+    }
+
+    win() {
+        this.state = "win";
+
+        let outer = this;
+        setTimeout(function() {
+            outer.add_listening_events();
+        }, 1000);
+    }
+
+    lose() {
+        this.state = "lose";
+
+        let outer = this;
+        setTimeout(function() {
+            outer.add_listening_events();
+        }, 1000);
+    }
+
+    late_update() {
+        this.render();
+    }
+
+    render() {
+        let len = this.playground.height / 2;
+        if (this.state === "win") {
+            this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
+        } else if (this.state === "lose") {
+            this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
         }
     }
 }
@@ -915,11 +997,28 @@ class AcGamePlayground {
         return colors[Math.floor(Math.random() * 5)];
     }
 
+    create_uuid() {
+        let res = "";
+        for (let i = 0; i < 8; i ++) {          // 每个窗口一个uuid，关掉之后不监听resize
+            let x = parseInt(Math.floor(Math.random() * 10));
+            res += x;
+        }
+        return res;
+    }
+
     start() {
         let outer = this;
-        $(window).resize(function() {       // 窗口调整时会触发该函数
+        let uuid = this.create_uuid();
+        $(window).on(`resize.${uuid}`, function() {       // 窗口调整时会触发该函数
+            console.log('resize');
             outer.resize();
         });
+
+        if (this.root.AcWingOS) {                 // 关闭监听函数，避免不必要的浪费
+            this.root.AcWingOS.api.window.on_close(function() {
+                $(window).off(`resize.${uuid}`);
+            });
+        }
     }
 
     resize() {
@@ -944,6 +1043,7 @@ class AcGamePlayground {
         this.mode = mode;
         this.state = "waiting";                     // 状态机，游戏状态分别为waiting -> fighting -> over
         this.notice_board = new NoticeBoard(this);  // 创建状态显示栏
+        this.score_board = new ScoreBoard(this);
         this.player_count = 0;
 
         this.resize();
@@ -967,6 +1067,27 @@ class AcGamePlayground {
     }
 
     hide() {    // 关闭playground界面
+        while (this.player && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
+            this.players[0].destroy();
+        }
+
+        if (this.game_map) {
+            this.game_map.destroy();
+            this.gane_map = null;
+        }
+
+        if (this.notice_board) {
+            this.notice_board.destroy();
+            this.notice_board = null;
+        }
+
+        if (this.score_board) {
+            this.score_board.destroy();
+            this.score_board = null;
+        }
+
+        this.$playground.empty();
+
         this.$playground.hide();
     }
 }
