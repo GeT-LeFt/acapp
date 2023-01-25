@@ -116,7 +116,7 @@ class MultiPlayer(AsyncWebsocketConsumer):
             return
 
         for player in players:
-            if player['uuid'] = data['attackee_uuid']:
+            if player['uuid'] == data['attackee_uuid']:
                 player['hp'] -= 25
 
         remain_cnt = 0
@@ -126,7 +126,7 @@ class MultiPlayer(AsyncWebsocketConsumer):
 
         if remain_cnt > 1:
             if self.room_name:
-                cache.get(self.room_name, players, 3600)
+                cache.set(self.room_name, players, 3600)
             else:
                 def db_update_player_score(username, score):
                     player = Player.objects.get(user__username=username)

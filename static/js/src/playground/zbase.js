@@ -27,7 +27,6 @@ class AcGamePlayground {
         let outer = this;
         let uuid = this.create_uuid();
         $(window).on(`resize.${uuid}`, function() {       // 窗口调整时会触发该函数
-            console.log('resize');
             outer.resize();
         });
 
