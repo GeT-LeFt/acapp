@@ -84,13 +84,13 @@ class AcGamePlayground {
     }
 
     hide() {    // 关闭playground界面
-        while (this.player && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
+        while (this.players && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
             this.players[0].destroy();
         }
 
         if (this.game_map) {
             this.game_map.destroy();
-            this.gane_map = null;
+            this.game_map = null;
         }
 
         if (this.notice_board) {

@@ -356,9 +356,9 @@ class Player extends AcGameObject {
         if (this.character === "me") {
             this.add_listening_events();    // 如果是本用户，添加监听函数
         } else if (this.character === "robot") {
-            this.tx = Math.random() * this.playground.width / this.playground.scale;
-            this.ty = Math.random() * this.playground.height / this.playground.scale;
-            this.move_to(this.tx, this.ty);
+            let tx = Math.random() * this.playground.width / this.playground.scale;
+            let ty = Math.random() * this.playground.height / this.playground.scale;
+            this.move_to(tx, ty);
         }
     }
 
@@ -374,7 +374,7 @@ class Player extends AcGameObject {
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if (e.which === 3) {                                        // 判断是否为右键(左键为1，右键为3，滚轮为2)
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
-                let ty = (e.clientY - rect. top) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
                 outer.move_to(tx, ty);
 
                 if (outer.playground.mode === "multi mode") {
@@ -533,7 +533,7 @@ class Player extends AcGameObject {
 
     update_win() {
         if (this.playground.state === "fighting" && this.character === "me" && this.playground.players.length === 1) {
-            this.playground.state === "over";
+            this.playground.state = "over";
             this.playground.score_board.win();
         }
     }
@@ -565,9 +565,9 @@ class Player extends AcGameObject {
                 this.move_length = 0;
                 this.vx = this.vy = 0;
                 if (this.character === "robot") {
-                    this.tx = Math.random() * this.playground.width / this.playground.scale;
-                    this.ty = Math.random() * this.playground.height / this.playground.scale;
-                    this.move_to(this.tx, this.ty);
+                    let tx = Math.random() * this.playground.width / this.playground.scale;
+                    let ty = Math.random() * this.playground.height / this.playground.scale;
+                    this.move_to(tx, ty);
                 }
             } else {
                 let moved = Math.min(this.move_length, this.speed * this.timedelta / 1000);
@@ -639,7 +639,7 @@ class Player extends AcGameObject {
         if (this.blink_coldtime > 0) {
             this.ctx.beginPath();
             this.ctx.moveTo(x * scale, y * scale);
-            this.ctx.arc(x * scale, y * scale, r * scale, 0 - Math.PI / 2, Math.PI * 2 * (1 - this.blink_coldtime / 5) - Math.PI / 2, false);
+            this.ctx.arc(x * scale, y * scale, r * scale, 0 - Math.PI / 2, Math.PI * 2 * (1 - this.blink_coldtime / 5) - Math.PI / 2, true);
             this.ctx.lineTo(x * scale, y * scale);
             this.ctx.fillStyle = "rgba(0, 0, 255, 0.6)";
             this.ctx.fill();
@@ -684,7 +684,7 @@ class ScoreBoard extends AcGameObject {
         let outer = this;
         let $canvas = this.playground.game_map.$canvas;
 
-        $canvas.on('click', function() {
+        $canvas.on("click", function() {
             outer.playground.hide();
             outer.playground.root.menu.show();
         });
@@ -717,7 +717,7 @@ class ScoreBoard extends AcGameObject {
         if (this.state === "win") {
             this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
         } else if (this.state === "lose") {
-            this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
+            this.ctx.drawImage(this.lose_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
         }
     }
 }
@@ -1067,13 +1067,13 @@ class AcGamePlayground {
     }
 
     hide() {    // 关闭playground界面
-        while (this.player && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
+        while (this.players && this.players.length > 0) {    // 要用while不用for因为删除第一个之后下标会变会删不干净
             this.players[0].destroy();
         }
 
         if (this.game_map) {
             this.game_map.destroy();
-            this.gane_map = null;
+            this.game_map = null;
         }
 
         if (this.notice_board) {

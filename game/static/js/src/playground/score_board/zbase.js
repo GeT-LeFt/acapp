@@ -20,7 +20,7 @@ class ScoreBoard extends AcGameObject {
         let outer = this;
         let $canvas = this.playground.game_map.$canvas;
 
-        $canvas.on('click', function() {
+        $canvas.on("click", function() {
             outer.playground.hide();
             outer.playground.root.menu.show();
         });
@@ -53,7 +53,7 @@ class ScoreBoard extends AcGameObject {
         if (this.state === "win") {
             this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
         } else if (this.state === "lose") {
-            this.ctx.drawImage(this.win_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
+            this.ctx.drawImage(this.lose_img, this.playground.width / 2 - len / 2, this.playground.height / 2 - len / 2, len, len);
         }
     }
 }
