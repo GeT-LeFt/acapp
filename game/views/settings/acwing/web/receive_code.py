@@ -1,10 +1,10 @@
-from django.shortcuts import redirect
+from django.shortcuts import redirect, reverse
 from django.core.cache import cache
 import requests
 from django.contrib.auth.models import User
 from game.models.player.player import Player
-from django.contrib.auth import login
 from random import randint
+from rest_framework_simplejwt.tokens import RefreshToken
 
 def receive_code(request):
     data = request.GET
@@ -28,8 +28,8 @@ def receive_code(request):
 
     players = Player.objects.filter(openid=openid)
     if players.exists():    # 如果之前存过用户信息，直接login
-        login(request, players[0].user)
-        return redirect("index")
+        refresh = RefreshToken.for_user(players[0].user)
+        return redirect(reverse("index") + "?access=%s&refresh=%s" % (str(refresh.access_token), str(refresh)))
 
     get_userinfo_url = "https://www.acwing.com/third_party/api/meta/identity/getinfo/"  # 申请用户信息
     params = {
@@ -46,6 +46,4 @@ def receive_code(request):
     user = User.objects.create(username=username)
     player = Player.objects.create(user=user, photo=photo, openid=openid)
 
-    login(request, user)
-
-    return redirect("index")    # "index"是urls的urlpatterns里面定义的名字
+    return redirect(reverse("index") + "?access=%s&refresh=%s" % (str(refresh.access_token), str(refresh)))    # "index"是urls的urlpatterns里面定义的名字

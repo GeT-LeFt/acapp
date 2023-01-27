@@ -117,9 +117,42 @@ class Settings {
         if (this.platform === "ACAPP") {
             this.getinfo_acapp();
         } else {
-            this.getinfo_web();
+            if (this.root.access) {
+                this.getinfo_web();
+                this.refresh_jwt_token();
+            } else {
+                this.login();
+            }
             this.add_listening_events();
         }
+    }
+
+    refresh_jwt_token() {
+        setInterval(() => {
+            $.ajax({
+                url: "https://app4436.acapp.acwing.com.cn/settings/token/refresh/",
+                type: "post",
+                data: {
+                    refresh: this.root.refresh,
+                },
+                success: resp => {
+                    this.root.access = resp.access;
+                }
+            });
+        }, 4.5 * 60 * 1000);
+
+        setTimeout(() => {
+            $.ajax({
+                url: "https://app4436.acapp.acwing.com.cn/settings/ranklist/",
+                type: "get",
+                headers: {
+                    'Authorization': "Bearer " + this.root.access,
+                },
+                success: resp => {
+                    console.log(resp);
+                }
+            });
+        }, 5000);
     }
 
     add_listening_events() {
@@ -166,31 +199,32 @@ class Settings {
         });
     }
 
-    login_on_remote() {  // 在远程服务器上登录
-        let outer = this;
-        let username = this.$login_username.val();
-        let password = this.$login_password.val();
+    login_on_remote(username, password) {  // 在远程服务器上登录
+        username = username || this.$login_username.val();
+        password = password || this.$login_password.val();
         this.$login_error_message.empty();
 
         $.ajax({
-            url: "https://app4436.acapp.acwing.com.cn/settings/login/",
-            type: "GET",
+            url: "https://app4436.acapp.acwing.com.cn/settings/token/",
+            type: "POST",
             data: {
                 username: username,
                 password: password,
             },
-            success: function(resp) {
-                if (resp.result === "success") {
-                    location.reload();
-                } else {
-                    outer.$login_error_message.html(resp.result);
-                }
+            success: resp => {
+                console.log(resp);
+                this.root.access = resp.access;
+                this.root.refresh = resp.refresh;
+                this.refresh_jwt_token();
+                this.getinfo_web();
+            },
+            error: () => {
+                this.$login_error_message.html("Wrong User or Password");
             }
         });
     }
 
     register_on_remote() {  // 在远程服务器上注册
-        let outer = this;
         let username = this.$register_username.val();
         let password = this.$register_password.val();
         let password_confirm = this.$register_password_confirm.val();
@@ -198,17 +232,17 @@ class Settings {
 
         $.ajax({
             url: "https://app4436.acapp.acwing.com.cn/settings/register/",
-            type: "GET",
+            type: "post",
             data: {
-                username: username,
-                password: password,
-                password_confirm: password_confirm,
+                username,
+                password,
+                password_confirm,
             },
-            success: function(resp) {
+            success: resp => {
                 if (resp.result === "success") {
-                    location.reload();  // 刷新页面
+                    this.login_on_remote(username, password);
                 } else {
-                    outer.$register_error_message.html(resp.result);
+                    this.$register_error_message.html(resp.result);
                 }
             }
         });
@@ -218,15 +252,9 @@ class Settings {
         if (this.platform === "ACAPP") {
             this.root.AcWingOS.api.window.close();
         } else {
-            $.ajax({
-                url: "https://app4436.acapp.acwing.com.cn/settings/logout/",
-                type: "GET",
-                success: function(resp) {
-                    if (resp.result === "success") {
-                        location.reload();
-                    }
-                }
-            });
+            this.root.access = "";
+            this.root.refresh = "";
+            location.href = "/";
         }
     }
 
@@ -241,14 +269,15 @@ class Settings {
     }
 
     acapp_login(appid, redirect_uri, scope, state) {
-        let outer = this;
-
-        this.root.AcWingOS.api.oauth2.authorize(appid, redirect_uri, scope, state, function(resp) {
+        this.root.AcWingOS.api.oauth2.authorize(appid, redirect_uri, scope, state, resp => {
             if (resp.result === "success") {
-                outer.username = resp.username;      // 和getinfo_web中success后的一样，保存用户信息并关掉登陆界面打开菜单界面
-                outer.photo = resp.photo;
-                outer.hide();
-                outer.root.menu.show();
+                this.username = resp.username;      // 和getinfo_web中success后的一样，保存用户信息并关掉登陆界面打开菜单界面
+                this.photo = resp.photo;
+                this.hide();
+                this.root.menu.show();
+                this.root.access = resp.access;
+                this.root.refresh = resp.refresh;
+                this.refresh_jwt_token();
             }
         });     // acapp网站提供的api，见第一步：https://www.acwing.com/blog/content/12467/
     }
@@ -268,21 +297,23 @@ class Settings {
     }
 
     getinfo_web() {     // 从服务器端获取用户信息
-        let outer = this;
-
         $.ajax({
             url: "https://app4436.acapp.acwing.com.cn/settings/getinfo/",   // 执行顺序：向后端发送请求，urls下settings路由指示，找到views里的getinfo函数，进一步调用getinfo_web返回json信息
-            type: "GET",
+            type: "get",
             data: {
-                platform: outer.platform,   // 不能用this.platform，防止this调用ajax函数本身，用outer保险
+                platform: this.platform,   // 不能用this.platform，防止this调用ajax函数本身，用outer保险
                 // 后端getinfo函数里需要platform参数，就传它
             },
-            success: function(resp) {       // 调用成功的回调函数
+            headers: {
+                'Authorization': "Bearer " + this.root.access,  // Bearer settings里面自己定义的
+            },
+            success: resp => {       // 调用成功的回调函数
                 if (resp.result === "success") {
-                    outer.username = resp.username;
-                    outer.photo = resp.photo;
-                    outer.hide();           // 如果获取信息成功，隐藏当前界面，打开菜单界面
-                    outer.root.menu.show();
+                    console.log(resp);
+                    this.username = resp.username;
+                    this.photo = resp.photo;
+                    this.hide();           // 如果获取信息成功，隐藏当前界面，打开菜单界面
+                    this.root.menu.show();
                 } else {
                     outer.login();          // 如果获取失败(未登录状态)，打开login界面
                 }

@@ -14,34 +14,14 @@ from channels.db import database_sync_to_async
 
 class MultiPlayer(AsyncWebsocketConsumer):
     async def connect(self):                        # 创建连接
-        self.room_name = None
-
-        for i in range(1000):
-            name = "room-%d" % (i)
-            if not cache.has_key(name) or len(cache.get(name)) < settings.ROOM_CAPACITY:    # redis里如果没有存该房间或者房间人数大于设定的最大值，break
-                self.room_name = name
-                break
-        if not self.room_name:                      # 如果房间不够，不进入房间，排队 章节7.1 - 时间01:54
-            return
-
-        await self.accept()
-
-        if not cache.has_key(self.room_name):       # 如果没有该房间，创建房间
-            cache.set(self.room_name, [], 3600)     # 创建空列表，有效期一小时
-
-        for player in cache.get(self.room_name):    # server将房间信息传给本地
-            await self.send(text_data=json.dumps({  # dump:将字典变成字符串
-                'event': "create_player",
-                'uuid': player['uuid'],
-                'username': player['username'],
-                'photo': player['photo'],
-                }))
-
-        await self.channel_layer.group_add(self.room_name, self.channel_name)
-        # 建立组，可以广播消息
+        user = self.scope['user']
+        if user.is_authenticated:
+            await self.accept()
+        else:
+            await self.close()
 
     async def disconnect(self, close_code):         # 断开连接，但不一定执行，比如突然断电
-        if self.room_name:
+        if hasattr(self, 'room_name') and self.room_name:
             print('disconnect')
             await self.channel_layer.group_discard(self.room_name, self.channel_name)
 
